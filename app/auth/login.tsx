@@ -58,14 +58,19 @@ export default function LoginScreen() {
       await login(email, password);
       // Navigation will be handled by the auth state change in _layout.tsx
     } catch (error) {
-      console.log('Login error details:', JSON.stringify(error));
-      
+      // Log all error details for diagnosis
+      console.log('Login error object:', error);
+      // @ts-ignore
+      console.log('Login error code:', error.code);
+      // @ts-ignore
+      console.log('Login error message:', error.message);
+
       // Get the error code from Firebase error
       // @ts-ignore
       const errorCode = error.code || '';
       // @ts-ignore
       const errorMessage = error.message || 'Failed to log in';
-      
+
       // Handle specific Firebase auth error codes
       if (errorCode === 'auth/user-not-found' || 
           errorCode === 'auth/wrong-password' || 
@@ -143,7 +148,7 @@ export default function LoginScreen() {
             />
             
             <TouchableOpacity style={styles.forgotPassword}>
-              <Link href={'/forgot-password' as any} asChild>
+              <Link href={'/auth/forgot-password' as any} asChild>
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </Link>
             </TouchableOpacity>
@@ -157,7 +162,7 @@ export default function LoginScreen() {
             
             <View style={{flexDirection: 'row', justifyContent: 'center', marginTop: 16}}>
               <Text style={styles.noAccountText}>Don't have an account? </Text>
-              <Link href={'/register' as any} asChild>
+              <Link href={'/auth/register' as any} asChild>
                 <Text style={{color: '#0284c7', fontWeight: '500', fontSize: 14}}>Create Account</Text>
               </Link>
             </View>

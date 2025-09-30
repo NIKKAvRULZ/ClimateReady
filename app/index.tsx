@@ -1,96 +1,8 @@
-import React, { useEffect, useState, useCallback, JSX } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, AppState, ActivityIndicator } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import Animated, { FadeInUp } from 'react-native-reanimated';
-import { Card } from '../components/Toolkit/Card';
-import { Badge } from '../components/Toolkit/Badge';
-import { ProgressBar } from '../components/Toolkit/ProgressBar';
-import { getUserProgress } from '../utils/storage';
-import { getEarnedBadges } from '../utils/badges';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Constants from 'expo-constants';
+import { useEffect } from 'react';
+import { useRouter } from 'expo-router';
 
-const PRIMARY = '#5ba24f';
-const YELLOW = '#fac609';
-const ORANGE = '#e5793a';
-const BG = '#dcefdd';
-
-// Replace with your OpenWeatherMap API key
-const OPENWEATHER_API_KEY = Constants.expoConfig?.extra?.openWeatherApiKey; // Get from https://openweathermap.org/api
-
-const quickActions: {
-  title: string;
-  subtitle: string;
-  icon: JSX.Element;
-  bgColor: string;
-  screen: 'safe-zone' | 'toolkit' | 'community';
-}[] = [
-  {
-    title: 'Safe Zones',
-    subtitle: 'Find nearby shelters',
-    icon: <Ionicons name="map" size={24} color="#fff" />,
-    bgColor: '#5ba24f',
-    screen: 'safe-zone',
-  },
-  {
-    title: 'Toolkit',
-    subtitle: 'Emergency checklists',
-    icon: <Feather name="package" size={24} color="#fff" />,
-    bgColor: '#fac609',
-    screen: 'toolkit',
-  },
-  {
-    title: 'Community',
-    subtitle: 'Connect & share',
-    icon: <Ionicons name="people" size={24} color="#fff" />,
-    bgColor: '#e5793a',
-    screen: 'community',
-  },
-];
-
-const mockAlerts = [
-  {
-    id: '1',
-    type: 'warning',
-    title: 'Heat Wave Warning',
-    description: 'Excessive heat expected. Temperatures may reach 40°C.',
-    severity: 'high',
-    timestamp: '2 hours ago',
-  },
-  {
-    id: '2',
-    type: 'watch',
-    title: 'Air Quality Advisory',
-    description: 'Unhealthy air quality due to wildfire smoke.',
-    severity: 'medium',
-    timestamp: '5 hours ago',
-  },
-];
-
-interface WeatherData {
-  temperature: number;
-  condition: string;
-  description: string;
-  location: string;
-  icon: string;
-  humidity: number;
-  windSpeed: number;
-}
-
-export default function HomeScreen() {
-  const [greeting, setGreeting] = useState('');
-  const [progress, setProgress] = useState<any>(null);
-  const [badges, setBadges] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
-  const [weather, setWeather] = useState<WeatherData | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [isLoadingWeather, setIsLoadingWeather] = useState(true);
-  const insets = useSafeAreaInsets();
+export default function IndexRedirect() {
   const router = useRouter();
-
-  // Greeting logic
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Good Morning');
@@ -234,7 +146,7 @@ export default function HomeScreen() {
                 <View style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, backgroundColor: ORANGE, borderRadius: 4 }} />
               )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/settings')}>
+            <TouchableOpacity>
               <Ionicons name="settings" size={24} color="#888" />
             </TouchableOpacity>
           </View>
