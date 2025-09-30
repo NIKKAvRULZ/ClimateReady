@@ -1,10 +1,10 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps } from "firebase/app";
 // https://firebase.google.com/docs/web/setup#available-libraries
-import { getAuth } from "firebase/auth";
+import { getAuth, initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { getFirestore, collection, addDoc, getDoc, setDoc, doc, updateDoc, query, where, getDocs } from "firebase/firestore";
-// import AsyncStorage from "@react-native-async-storage/async-storage";
-// import { Platform } from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from 'react-native';
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -19,7 +19,8 @@ const firebaseConfig = {
 // Initialize Firebase (prevent duplicate app error)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// Initialize Auth (Expo Go compatible)
+
+// Initialize Auth for all platforms (Expo Go compatible)
 export const auth = getAuth(app);
 
 // Export app for reference if needed
@@ -32,18 +33,23 @@ export const db = getFirestore(app);
 import { enableIndexedDbPersistence, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
 
 // Only enable persistence for non-web platforms or in production on web
-if (Platform.OS !== 'web' || process.env.NODE_ENV === 'production') {
-  enableIndexedDbPersistence(db, {cacheSizeBytes: CACHE_SIZE_UNLIMITED})
-    .catch((err) => {
-      if (err.code === 'failed-precondition') {
-        // Multiple tabs open, persistence can only be enabled
-        // in one tab at a time.
-        console.warn('Firestore persistence failed to enable: multiple tabs open');
-      } else if (err.code === 'unimplemented') {
-        // The current browser doesn't support IndexedDB persistence
-        console.warn('Firestore persistence is not supported in this environment');
-      }
-    });
+try {
+  if (Platform.OS !== 'web' || process.env.NODE_ENV === 'production') {
+    enableIndexedDbPersistence(db, {cacheSizeBytes: CACHE_SIZE_UNLIMITED})
+      .catch((err) => {
+        if (err.code === 'failed-precondition') {
+          // Multiple tabs open, persistence can only be enabled
+          // in one tab at a time.
+          console.warn('Firestore persistence failed to enable: multiple tabs open');
+        } else if (err.code === 'unimplemented') {
+          // The current browser doesn't support IndexedDB persistence
+          console.warn('Firestore persistence is not supported in this environment');
+        }
+      });
+  }
+} catch (e) {
+  // Platform might not be available in some web environments
+  console.warn('Platform detection failed, skipping Firestore persistence setup.');
 }
 
 // Firebase collections references
