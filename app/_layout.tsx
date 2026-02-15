@@ -3,17 +3,20 @@ import { Slot, router, SplashScreen } from 'expo-router';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LocalizationProvider } from '../context/LocalizationContext';
 
 // Keep the splash screen visible while we check authentication
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <SafeAreaProvider>
-        <RootLayoutNav />
-      </SafeAreaProvider>
-    </AuthProvider>
+    <LocalizationProvider>
+      <AuthProvider>
+        <SafeAreaProvider>
+          <RootLayoutNav />
+        </SafeAreaProvider>
+      </AuthProvider>
+    </LocalizationProvider>
   );
 }
 
@@ -33,7 +36,7 @@ function RootLayoutNav() {
         checkAuthState();
         
         if (isLoggedIn && user) {
-          router.replace('/tabs/' as any);
+          router.replace('/landing' as any);
         } else {
           router.replace('/auth/login' as any);
         }
@@ -52,4 +55,6 @@ function RootLayoutNav() {
   
   // Return a slot to enable child routes to be rendered
   return <Slot />;
+  
+  // Note: Settings page is accessible from both tabs and directly
 }

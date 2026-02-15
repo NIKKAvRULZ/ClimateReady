@@ -1,8 +1,15 @@
+// utils/storage.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { firestoreService } from './firestoreService';
+import { auth } from '../firebaseConfig';
+import { checklistItems } from './checklistData';
 
 const STORAGE_KEY = 'user_preparedness_progress';
 
 export interface UserProgress {
+  totalItems: number;
+  completedLearning: never[];
+  completedItems: string[];
   level: number;
   points: number;
   percent: number;
@@ -16,59 +23,140 @@ export interface UserProgress {
 }
 
 export const defaultUserProgress: UserProgress = {
+  completedItems: [],
   level: 1,
   points: 0,
   percent: 0,
   checklists: {},
   completedCategories: 0,
   lastUpdated: new Date().toISOString(),
+  completedLearning: [],
+  totalItems: 0
 };
 
 export const getUserProgress = async (): Promise<UserProgress> => {
   try {
-    const storedProgress = await AsyncStorage.getItem(STORAGE_KEY);
-    if (storedProgress) {
-      return JSON.parse(storedProgress);
+    // Use Firestore if user is authenticated
+    if (auth.currentUser) {
+      const progress = await firestoreService.getUserProgress();
+      return {
+        ...progress,
+        completedLearning: [],
+        totalItems: checklistItems.length,
+      };
+    } else {
+      // Fallback to local storage for unauthenticated users
+      const storedProgress = await AsyncStorage.getItem(STORAGE_KEY);
+      let progress: UserProgress;
+      if (storedProgress) {
+        progress = JSON.parse(storedProgress);
+      } else {
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(defaultUserProgress));
+        progress = { ...defaultUserProgress };
+      }
+
+      // Ensure completedItems is always an array
+      if (!Array.isArray(progress.completedItems)) {
+        progress.completedItems = [];
+      }
+
+      // Recalculate percent and points based on all checklistItems
+      const completedItemIds: string[] = [];
+      Object.entries(progress.checklists).forEach(([cat, items]) => {
+        Object.entries(items).forEach(([id, done]) => {
+          if (done) completedItemIds.push(id);
+        });
+      });
+      const totalItems = checklistItems.length;
+      const completedItems = checklistItems.filter(item => completedItemIds.includes(item.id)).length;
+      progress.percent = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
+      progress.points = checklistItems.reduce((sum, item) => completedItemIds.includes(item.id) ? sum + (item.points || 0) : sum, 0);
+      progress.level = Math.floor(progress.points / 100) + 1;
+
+      return progress;
     }
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(defaultUserProgress));
-    return defaultUserProgress;
   } catch (error) {
     console.error('Error getting user progress:', error);
-    return defaultUserProgress;
+    return { ...defaultUserProgress, completedItems: [] };
   }
 };
 
 export const updateChecklistItem = async (
-  categoryId: string, 
-  itemId: string, 
+  categoryId: string,
+  itemId: string,
   completed: boolean
 ): Promise<void> => {
   try {
-    const progress = await getUserProgress();
-    
-    if (!progress.checklists[categoryId]) {
-      progress.checklists[categoryId] = {};
+    // Use Firestore if user is authenticated
+    if (auth.currentUser) {
+      await firestoreService.updateChecklistItem({
+        itemId,
+        category: categoryId,
+        completed,
+      });
+    } else {
+      // Fallback to local storage for unauthenticated users
+      const progress = await getUserProgress();
+
+      if (!progress.checklists[categoryId]) {
+        progress.checklists[categoryId] = {};
+      }
+
+      progress.checklists[categoryId][itemId] = completed;
+      progress.lastUpdated = new Date().toISOString();
+
+      // Calculate completed items (all true in checklists)
+      const completedItemIds: string[] = [];
+      Object.entries(progress.checklists).forEach(([cat, items]) => {
+        Object.entries(items).forEach(([id, done]) => {
+          if (done) completedItemIds.push(id);
+        });
+      });
+
+      // Use all checklistItems for total
+      const totalItems = checklistItems.length;
+      const completedItems = checklistItems.filter(item => completedItemIds.includes(item.id)).length;
+
+      progress.percent = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
+      // Points: sum of points for completed items
+      progress.points = checklistItems.reduce((sum, item) => completedItemIds.includes(item.id) ? sum + (item.points || 0) : sum, 0);
+      progress.level = Math.floor(progress.points / 100) + 1;
+
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
     }
-    
-    progress.checklists[categoryId][itemId] = completed;
-    progress.lastUpdated = new Date().toISOString();
-    
-    // Calculate new progress
-    const totalItems = Object.values(progress.checklists).reduce((total, category) => {
-      return total + Object.keys(category).length;
-    }, 0);
-    
-    const completedItems = Object.values(progress.checklists).reduce((completed, category) => {
-      return completed + Object.values(category).filter(item => item === true).length;
-    }, 0);
-    
-    progress.percent = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
-    progress.points = Math.floor(progress.percent * 10);
-    progress.level = Math.floor(progress.points / 100) + 1;
-    
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   } catch (error) {
     console.error('Error updating checklist item:', error);
     throw error;
   }
+};
+
+export const saveCustomItems = async (items: any) => {
+  if (auth.currentUser) {
+    // For Firestore, we handle custom items individually through firestoreService
+    // This function is kept for backward compatibility
+    await AsyncStorage.setItem('customItems', JSON.stringify(items));
+  } else {
+    await AsyncStorage.setItem('customItems', JSON.stringify(items));
+  }
+};
+
+export const getCustomItems = async () => {
+  if (auth.currentUser) {
+    return await firestoreService.getCustomItems();
+  } else {
+    const items = await AsyncStorage.getItem('customItems');
+    return items ? JSON.parse(items) : [];
+  }
+};
+
+export interface AiRecommendation {
+  [key: string]: any;
+}
+
+export const saveAiRecommendation = async (recommendation: AiRecommendation | string): Promise<void> => {
+  await AsyncStorage.setItem('aiRecommendation', typeof recommendation === 'string' ? recommendation : JSON.stringify(recommendation));
+};
+
+export const getAiRecommendation = async () => {
+  return await AsyncStorage.getItem('aiRecommendation');
 };

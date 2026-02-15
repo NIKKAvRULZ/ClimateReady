@@ -19,11 +19,14 @@
       "bundleIdentifier": "com.yourcompany.climateready"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#5ba24f"
       },
       "edgeToEdgeEnabled": true,
+      "softwareNavBarColor": "#ffffff",
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

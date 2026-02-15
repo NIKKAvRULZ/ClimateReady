@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,14 +11,20 @@ import {
   ActivityIndicator,
   ScrollView
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useLocalSearchParams, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { InputField, Button } from '../../../components/AuthComponents';
 import { useAuth } from '../../../context/AuthContext';
 
+// Screen: manage the user’s emergency contacts used during SOS dispatches.
 export default function EditEmergencyContactsScreen() {
   const { userProfile, updateUserProfile } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useLocalSearchParams();
+  const rawReturnToParam = Array.isArray(searchParams.returnTo)
+    ? searchParams.returnTo[0]
+    : (searchParams.returnTo as string | undefined);
   const [isLoading, setIsLoading] = useState(false);
   
   // Initialize contacts from user profile or with an empty array
@@ -85,6 +91,7 @@ export default function EditEmergencyContactsScreen() {
   };
   
   // Handle form field changes
+  // Keep form state and inline errors in sync as the user edits.
   const handleChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field as keyof typeof errors]) {
@@ -93,6 +100,7 @@ export default function EditEmergencyContactsScreen() {
   };
   
   // Validate the form
+  // Validate required fields and run basic formatting checks.
   const validateForm = () => {
     const newErrors = { ...errors };
     let isValid = true;
@@ -126,6 +134,7 @@ export default function EditEmergencyContactsScreen() {
   };
   
   // Save the current contact (add new or update existing) and save to database
+  // Add a new entry or update an existing one, then persist the result.
   const saveContact = async () => {
     if (!validateForm()) return;
     
@@ -175,6 +184,7 @@ export default function EditEmergencyContactsScreen() {
   };
   
   // Remove a contact and save changes to database
+  // Confirm with the user before deleting and syncing to Firestore.
   const removeContact = (index: number) => {
     Alert.alert(
       'Remove Contact',
@@ -219,6 +229,39 @@ export default function EditEmergencyContactsScreen() {
   
   // We've removed the handleSave function since we now save changes immediately
   // when adding, editing, or removing contacts
+
+  const currentPath = useMemo(() => {
+    if (typeof pathname === 'string' && pathname.length > 0) {
+      return pathname;
+    }
+    return '/tabs/profile-edit/emergency-contacts';
+  }, [pathname]);
+
+  const decodedReturnTo = useMemo(() => {
+    if (typeof rawReturnToParam === 'string' && rawReturnToParam.length > 0) {
+      try {
+        const decoded = decodeURIComponent(rawReturnToParam);
+        return decoded.startsWith('/') ? decoded : `/${decoded}`;
+      } catch (error) {
+        return rawReturnToParam.startsWith('/') ? rawReturnToParam : `/${rawReturnToParam}`;
+      }
+    }
+    return undefined;
+  }, [rawReturnToParam]);
+
+  const handleBack = useCallback(() => {
+    if (decodedReturnTo && decodedReturnTo !== currentPath) {
+      router.replace(decodedReturnTo as any);
+      return;
+    }
+
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace('/tabs/settings');
+  }, [router, decodedReturnTo, currentPath]);
   
   return (
     <SafeAreaView style={styles.container}>
@@ -227,9 +270,10 @@ export default function EditEmergencyContactsScreen() {
           title: 'Emergency Contacts',
           headerShown: true,
           headerTitleAlign: 'center',
+          // Provide an explicit back affordance instead of relying on native gestures.
           headerLeft: () => (
             <TouchableOpacity 
-              onPress={() => router.push('/tabs/profile' as any)}
+              onPress={handleBack}
               style={{ paddingHorizontal: 16 }}
             >
               <Ionicons name="arrow-back" size={24} color="#0284c7" />
@@ -427,12 +471,6 @@ export default function EditEmergencyContactsScreen() {
               </Text>
             </View>
             
-            <Button
-              title="Back to Profile"
-              onPress={() => router.push('/tabs/profile' as any)}
-              variant="outline"
-              style={styles.saveButton}
-            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -489,9 +527,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     color: '#6b7280',
     fontSize: 14,
-  },
-  saveButton: {
-    marginBottom: 16,
   },
   noContactsText: {
     textAlign: 'center',
